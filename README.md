@@ -1,7 +1,7 @@
 # Pending Deprecation
 
 A few versions ago (around 6.4 IIRC), rtw88x2bu support has been added to the
-mainline Linux kernel.  This repo will be maintained until we either receive a
+mainline Linux kernel. This repo will be maintained until we either receive a
 few comments on https://github.com/cilynx/rtl88x2bu/issues/270 that the
 mainline driver is working well or [MaxG87](https://github.com/MaxG87) and
 [cilynx](https://github.com/cilynx) agree that no feedback means no one is
@@ -21,13 +21,14 @@ Realtek's 5.6.1.6 source was found bundled with the [Cudy WU1200 AC1200 High Gai
 
 Build confirmed on:
 
-* Linux version `5.4.0-91-generic` on Linux Mint 20.2 (30 November 2021)
-* Linux version `5.15.89` on Manjaro (3 February 2023)
-* Linux version `5.19` on Ubuntu 22.4
-* Linux version `6.1.0-9-amd64` on Debian Bookworm
-* Linux version `6.1.*` to `6.12.*` (self-compiled) on Debian and Ubuntu 22.04
-* Linux version `6.10.3` to `6.12.10` on Debian Trixie
-* Linux version `6.13.0` (self-compiled) on Debian Trixie
+- Linux version `5.4.0-91-generic` on Linux Mint 20.2 (30 November 2021)
+- Linux version `5.15.89` on Manjaro (3 February 2023)
+- Linux version `5.19` on Ubuntu 22.4
+- Linux version `6.1.0-9-amd64` on Debian Bookworm
+- Linux version `6.1.*` to `6.12.*` (self-compiled) on Debian and Ubuntu 22.04
+- Linux version `6.10.3` to `6.12.10` on Debian Trixie
+- Linux version `6.13.0` (self-compiled) on Debian Trixie
+- Linux version `6.17.0` - `6.18.0` on Cachy OS (`make CC=clang LD=ld.lld -j16`)
 
 As of lately the maintainer experienced issues with the driver on Debian
 Testing, covering several Linux Kernel versions. More details can be found in
@@ -50,9 +51,9 @@ important work by saving and such beforehand.
 If you want to have the driver available at startup, it will be convenient to
 register it in DKMS. This can be done using the script `deploy.sh`, for either
 
-  * all kernels,
-  * a specific kernel, or
-  * the currently active kernel.
+- all kernels,
+- a specific kernel, or
+- the currently active kernel.
 
 Please consult `--help` for more information and consider reading the script
 before executing it.
@@ -68,7 +69,6 @@ this by running it:
 
     sudo modprobe cfg80211
 
-
 Another reported cause was that old deployments of the driver were still
 present in the system directories. One reported solution was to forcibly remove
 all old driver modules. **This is a drastic measure. It may prevent you from
@@ -80,7 +80,6 @@ If you want to proceed anyways, you can run the following commands:
     sudo dkms remove rtl88x2bu/5.8.7.4 --all
     find /lib/modules -name cfg80211.ko -ls
     sudo rm -f /lib/modules/*/updates/net/wireless/cfg80211.ko
-
 
 ### Linux 5.18+ and RTW88 Driver
 
@@ -103,18 +102,16 @@ echo "blacklist rtw88_8822bu" | sudo tee /etc/modprobe.d/rtw8822bu.conf
 
 Then reboot your system.
 
-
 ### Secure Boot
 
 Secure Boot will prevent the module from loading as it isn't signed. In order
-to check whether you have secure boot enabled, you couly run  `mokutil
+to check whether you have secure boot enabled, you couly run `mokutil
 --sb-state`. If you see something like `SecureBoot disabled`, you do not take
 to setup module signing.
 
 If Secure Boot is enabled on your machine, you either could disable it in BIOS
 or UEFI or you could set up signing the module. How to do so is described
 [here](https://github.com/cilynx/rtl88x2bu/issues/210#issuecomment-1166402943).
-
 
 ## Raspberry Pi Access Point
 
@@ -189,6 +186,7 @@ sudo reboot
 ```
 
 If you want 802.11an speeds 144Mbps you could use this config below:
+
 ```
 # Configure hostapd
 sudo tee /etc/hostapd/hostapd.conf <<EOF
@@ -234,6 +232,7 @@ wlx74ee2ae24062  IEEE 802.11an  ESSID:"borg"  Nickname:"<WIFI@REALTEK>"
           Tx excessive retries:0  Invalid misc:0   Missed beacon:0
 
 ```
+
 If you want to setup
 [masquerading](https://www.raspberrypi.org/documentation/configuration/wireless/access-point-routed.md)
 or

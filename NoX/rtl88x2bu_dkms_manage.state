@@ -1,0 +1,6 @@
+BACKUP_DKMS_SOURCE=/mnt/data2_78g/Security/scripts/rtl88x2bu/NoX/backup_rtl88x2bu_dkms_2026-04-30_010027_rtl88x2bu-5.8.7.1_35809.20191129_COEX20191120-7777.tar.gz
+BACKUP_MODPROBE_CONF=/mnt/data2_78g/Security/scripts/rtl88x2bu/NoX/backup_rtl88x2bu_modprobe_2026-04-30_010027_rtl88x2bu-local.conf
+DKMS_NAME=rtl88x2bu
+DKMS_VERSION=5.8.7.1_35809.20191129_COEX20191120-7777
+DKMS_SRC=/usr/src/rtl88x2bu-5.8.7.1_35809.20191129_COEX20191120-7777
+MODPROBE_CONF=/etc/modprobe.d/rtl88x2bu-local.conf

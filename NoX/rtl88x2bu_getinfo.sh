@@ -213,3 +213,13 @@ if command -v chown >/dev/null 2>&1 && id nox >/dev/null 2>&1; then
 fi
 
 echo "$OUT"
+
+# Convenience: open the generated report in Kate when available.
+# This is best-effort only and does not change the report.
+if command -v kate >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    if [ "${EUID}" -eq 0 ] && id nox >/dev/null 2>&1; then
+        sudo -u nox env DISPLAY="${DISPLAY}" XAUTHORITY="${XAUTHORITY:-/home/nox/.Xauthority}" kate "$OUT" >/dev/null 2>&1 &
+    else
+        kate "$OUT" >/dev/null 2>&1 &
+    fi
+fi

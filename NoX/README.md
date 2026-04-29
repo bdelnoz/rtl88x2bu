@@ -1,144 +1,277 @@
-# NoX rtl88x2bu operational scripts
+# RTL88X2BU / TP-Link Driver – NoX Workflow
 
-This directory contains the local operational scripts used to investigate, build, test, persist, validate, and optionally finalize the `rtl88x2bu` driver workflow on Kali Linux.
+## Objectif
 
-The scripts are intended to be executed in numbered order after renaming them with the `01_`, `02_`, etc. prefixes.
+Ce dossier contient la couche d’automatisation NoX pour gérer le driver Realtek `rtl88x2bu` utilisé avec la carte Wi-Fi USB TP-Link.
 
-## Execution order
+L’objectif est d’avoir une installation :
 
-| Order | Script | Purpose |
-|---:|---|---|
-| 01 | `01_rtl88x2bu_getinfo.sh` | Collects baseline system, kernel, USB, module, and driver information before touching anything. |
-| 02 | `02_rtl88x2bu_wifi_netinfo.sh` | Collects Wi-Fi and network state: interfaces, wireless links, stations, routes, counters, and relevant logs. |
-| 03 | `03_rtl88x2bu_buildtest_tmp.sh` | Builds the driver in a temporary test location without installing it persistently. |
-| 04 | `04_rtl88x2bu_loadtest_tmp.sh` | Tests loading/binding behavior from the temporary build context. Used before persistent installation. |
-| 05 | `05_rtl88x2bu_persist_install.sh` | Installs the compiled `88x2bu.ko` persistently for the active kernel under `/lib/modules/.../extra/rtl88x2bu/`, writes the local modprobe blacklist config, runs `depmod`, and validates the persistent setup. |
-| 06 | `06_rtl88x2bu_dkms_manage.sh` | Registers/builds/installs the driver through DKMS so it can be rebuilt automatically for future kernels. This is the preferred long-term maintenance layer. |
-| 07 | `07_rtl88x2bu_initramfs_finalize.sh` | Optional final initramfs synchronization script. It backs up the active initrd and runs `update-initramfs` only when explicitly called with `--exec`. |
+- reproductible ;
+- vérifiable ;
+- réversible ;
+- compatible Kali Linux ;
+- compatible avec une logique DKMS pour les futurs changements de kernel ;
+- sans nettoyage destructif non maîtrisé.
 
-## Recommended normal workflow
+---
 
-For a clean investigation and deployment flow:
+## Contexte
 
-```bash
-./01_rtl88x2bu_getinfo.sh
-./02_rtl88x2bu_wifi_netinfo.sh
-./03_rtl88x2bu_buildtest_tmp.sh
-./04_rtl88x2bu_loadtest_tmp.sh
-sudo ./05_rtl88x2bu_persist_install.sh --exec
-sudo ./05_rtl88x2bu_persist_install.sh --validation
-sudo ./06_rtl88x2bu_dkms_manage.sh --exec
-sudo ./06_rtl88x2bu_dkms_manage.sh --validation
-```
-
-The initramfs step is optional and separate:
-
-```bash
-./07_rtl88x2bu_initramfs_finalize.sh --status
-./07_rtl88x2bu_initramfs_finalize.sh --validation
-```
-
-Only run the next command if you explicitly want to update the active initramfs:
-
-```bash
-sudo ./07_rtl88x2bu_initramfs_finalize.sh --exec
-```
-
-## Script modes
-
-The main operational scripts generally use these modes:
-
-- `--status`: read-only status report.
-- `--validation`: read-only validation report.
-- `--exec`: performs the requested installation or finalization.
-- `--reverse`: attempts to reverse what the script previously changed.
-- `--no-kate`: avoids opening the generated report in Kate.
-
-## Generated report files
-
-Generated Markdown reports follow this kind of pattern:
+Le driver concerné est le module :
 
 ```text
-output4ChatGPT.YYYY-MM-DD_HHMMSS.<topic>.md
+88x2bu
 ```
 
-Examples:
+La carte TP-Link observée expose notamment l’identifiant USB :
 
 ```text
-output4ChatGPT.2026-04-30_010544.rtl88x2bu-dkms-manage.md
-output4ChatGPT.2026-04-30_003217.rtl88x2bu-initramfs-finalize.md
+2357:012d
 ```
 
-These files are reports. They are not scripts. They document what the script observed or changed at a given time.
+Le driver noyau concurrent à éviter est la famille :
 
-They can be kept as evidence/history while debugging, but they are not required to execute the workflow.
+```text
+rtw88_8822bu
+rtw88_usb
+rtw88_8822b
+rtw88_core
+```
 
-## `.state` files
+Le but est de forcer l’utilisation du driver local `rtl88x2bu` / `88x2bu`, validé sur la machine cible.
 
-State files record what a script changed or backed up so that `--reverse` can find the right artefacts later.
+---
 
-Current examples:
+## Dossier NoX
+
+Les scripts personnalisés sont placés dans :
+
+```text
+NoX/
+```
+
+Ce dossier contient les scripts d’installation, validation, finalisation initramfs, gestion DKMS et nettoyage.
+
+---
+
+## Ordre d’exécution recommandé
+
+```text
+01_install_persist.sh
+02_initramfs_finalize.sh
+03_dkms_manage.sh
+99_cleanup_nox.sh
+```
+
+---
+
+## Scripts
+
+### 01_install_persist.sh
+
+Script d’installation persistante manuelle.
+
+Rôle :
+
+- copie le module compilé `88x2bu.ko` vers `/lib/modules/$(uname -r)/extra/rtl88x2bu/` ;
+- crée ou met à jour `/etc/modprobe.d/rtl88x2bu-local.conf` ;
+- blacklist les drivers noyau concurrents `rtw88*` ;
+- lance `depmod` ;
+- génère un rapport Markdown local ;
+- écrit ses sauvegardes directement dans le dossier du script.
+
+Commandes principales :
+
+```bash
+./01_install_persist.sh --status
+sudo ./01_install_persist.sh --exec
+sudo ./01_install_persist.sh --validation
+sudo ./01_install_persist.sh --reverse
+```
+
+---
+
+### 02_initramfs_finalize.sh
+
+Script optionnel de synchronisation initramfs.
+
+Rôle :
+
+- vérifie si l’initramfs actif contient la configuration attendue ;
+- sauvegarde l’initrd actif avant modification ;
+- lance `update-initramfs -u -k $(uname -r)` uniquement avec `--exec` ;
+- permet un rollback de l’initrd sauvegardé avec `--reverse`.
+
+Commande critique :
+
+```bash
+sudo ./02_initramfs_finalize.sh --exec
+```
+
+Attention : cette commande touche l’initramfs. Elle ne doit pas être lancée machinalement.
+
+Commandes principales :
+
+```bash
+./02_initramfs_finalize.sh --status
+./02_initramfs_finalize.sh --validation
+sudo ./02_initramfs_finalize.sh --exec
+sudo ./02_initramfs_finalize.sh --reverse
+```
+
+---
+
+### 03_dkms_manage.sh
+
+Script de gestion DKMS.
+
+Rôle :
+
+- copie le repo source vers `/usr/src/rtl88x2bu-<version>` ;
+- écrit un `dkms.conf` contrôlé ;
+- enregistre le module dans DKMS ;
+- build le module pour le kernel actif ;
+- installe le module DKMS si demandé ;
+- sauvegarde les états précédents ;
+- génère un rapport Markdown local.
+
+Commandes principales :
+
+```bash
+./03_dkms_manage.sh --status
+sudo ./03_dkms_manage.sh --exec
+sudo ./03_dkms_manage.sh --validation
+sudo ./03_dkms_manage.sh --reverse
+```
+
+État attendu à terme :
+
+```text
+rtl88x2bu/<version>, <kernel>, x86_64: installed
+```
+
+Un état seulement `built` signifie que DKMS a compilé le module mais ne l’a pas encore installé dans `/updates/dkms`.
+
+---
+
+### 99_cleanup_nox.sh
+
+Script de nettoyage strict.
+
+Rôle :
+
+- supprime uniquement les artefacts générés par les scripts NoX ;
+- ne supprime pas les scripts `.sh` ;
+- ne supprime pas `README.md` ;
+- ne touche pas au repo Git ;
+- ne touche pas à `/usr/src`, `/lib/modules`, `/etc`, `/boot`.
+
+Patterns typiquement nettoyés :
+
+```text
+output4ChatGPT.*.rtl88x2bu-*.md
+rtl88x2bu_*.log
+rtl88x2bu_*.state
+backup_rtl88x2bu_*
+```
+
+Commande :
+
+```bash
+./99_cleanup_nox.sh
+```
+
+---
+
+## Fichiers générés
+
+### output4ChatGPT.*.md
+
+Rapports Markdown générés par les scripts.
+
+Ils contiennent :
+
+- le mode exécuté ;
+- le kernel actif ;
+- les chemins utilisés ;
+- les validations ;
+- les sorties de commandes ;
+- le verdict final.
+
+Ces fichiers sont temporaires et peuvent être supprimés par `99_cleanup_nox.sh`.
+
+---
+
+### *.log
+
+Logs locaux d’exécution.
+
+Ils servent au diagnostic et peuvent être supprimés après validation.
+
+---
+
+### *.state
+
+Fichiers d’état.
+
+Ils servent à conserver la trace d’une action précédente, notamment pour `--reverse`.
+
+Exemples :
 
 ```text
 rtl88x2bu_persist_install.state
-rtl88x2bu_dkms_manage.state
 rtl88x2bu_initramfs_finalize.state
+rtl88x2bu_dkms_manage.state
 ```
 
-These files are operational metadata. Do not rename or edit them manually unless you know exactly what you are doing.
+Ils peuvent être supprimés uniquement lorsque le workflow est terminé et validé.
 
-They are useful because a later `--reverse` can use them to locate backup files and restore prior state.
+---
 
-## Backup files
+### backup_*.tar.gz / backup_rtl88x2bu_*
 
-Backup files are created before overwriting or replacing important existing files.
+Sauvegardes créées avant modification.
 
-Examples:
+Elles peuvent contenir :
+
+- ancienne configuration modprobe ;
+- ancien dossier DKMS source ;
+- ancien initrd ;
+- ancien module installé.
+
+Ces fichiers permettent un rollback. Ne les supprimer qu’après validation complète.
+
+---
+
+## Fichiers système concernés
+
+### Module manuel
 
 ```text
-backup_rtl88x2bu_2026-04-29_233817_88x2bu.ko
-backup_rtl88x2bu_2026-04-29_233817_rtl88x2bu-local.conf
-backup_rtl88x2bu_modprobe_2026-04-30_010027_rtl88x2bu-local.conf
+/lib/modules/$(uname -r)/extra/rtl88x2bu/88x2bu.ko
 ```
 
-These are safety copies.
+Utilisé par l’installation persistante manuelle.
 
-Typical meanings:
+---
 
-- `backup_*_88x2bu.ko`: previous kernel module backup.
-- `backup_*_rtl88x2bu-local.conf`: previous modprobe blacklist/config backup.
-- `backup_rtl88x2bu_modprobe_*`: previous `/etc/modprobe.d/rtl88x2bu-local.conf` backup created by DKMS management script.
-
-Do not delete these immediately after a successful run. Keep them until at least one reboot and validation cycle is completed.
-
-## `.tar.gz` backup archives
-
-The `.tar.gz` files are compressed backups of the DKMS source tree.
-
-Examples:
+### Module DKMS
 
 ```text
-backup_rtl88x2bu_dkms_2026-04-30_005002_rtl88x2bu-5.8.7.1_35809.20191129_COEX20191120-7777.tar.gz
-backup_rtl88x2bu_dkms_2026-04-30_010027_rtl88x2bu-5.8.7.1_35809.20191129_COEX20191120-7777.tar.gz
+/lib/modules/$(uname -r)/updates/dkms/88x2bu.ko
 ```
 
-These are not scripts.
+Cible attendue pour une installation DKMS pleinement installée.
 
-They preserve the previous `/usr/src/rtl88x2bu-...` DKMS source tree before it was replaced by the script.
+---
 
-Keep them until the DKMS setup has survived a reboot and at least one future kernel-related validation.
-
-## `.conf` files
-
-The relevant system configuration file is:
+### Configuration modprobe
 
 ```text
 /etc/modprobe.d/rtl88x2bu-local.conf
 ```
 
-It blacklists the in-kernel `rtw88_*` driver family so the local `88x2bu` driver is preferred for the TP-Link RTL8812BU/RTL8822BU device.
-
-Typical content:
+Contenu attendu :
 
 ```text
 blacklist rtw88_8822bu
@@ -147,103 +280,191 @@ blacklist rtw88_8822b
 blacklist rtw88_core
 ```
 
-Inside this `NoX` directory, files ending in `.conf` are usually backups of that system config file. They are not active unless copied back to `/etc/modprobe.d/`.
+---
 
-## `.log` files
-
-Log files follow this pattern:
+### Source DKMS
 
 ```text
-rtl88x2bu_<script-topic>.YYYY-MM-DD_HHMMSS.log
+/usr/src/rtl88x2bu-5.8.7.1_35809.20191129_COEX20191120-7777
 ```
 
-They are generated by scripts to capture execution details. Some logs may be empty when all useful output was written directly into the Markdown report.
+Contient le source utilisé par DKMS.
 
-They are not scripts and are not required for normal execution.
+---
 
-## DKMS notes
+## Vérifications importantes
 
-`06_rtl88x2bu_dkms_manage.sh` installs the driver through DKMS.
-
-This means:
-
-- the source is copied to `/usr/src/rtl88x2bu-<version>/`;
-- DKMS registers the module/version;
-- DKMS builds the module for the active kernel;
-- DKMS installs the module under `/lib/modules/<kernel>/updates/dkms/`;
-- future compatible kernel upgrades can trigger a DKMS rebuild.
-
-The successful DKMS target module is typically:
-
-```text
-/lib/modules/$(uname -r)/updates/dkms/88x2bu.ko.xz
-```
-
-The expected validation result is:
-
-```text
-DKMS validation passed.
-```
-
-## Initramfs notes
-
-`07_rtl88x2bu_initramfs_finalize.sh` is intentionally separate because it touches the active initramfs only with `--exec`.
-
-The script backs up:
-
-```text
-/boot/initrd.img-$(uname -r)
-```
-
-into the script directory before running:
-
-```text
-update-initramfs -u -k $(uname -r)
-```
-
-This step is not required just to use the driver now. It is a final synchronization step for boot-time consistency.
-
-## What is safe to rename
-
-The seven executable scripts can be renamed with numeric prefixes.
-
-Do not rename generated backup files, state files, logs, or Markdown reports unless you also accept that older reports and reverse operations may no longer point to the same file names.
-
-## Rename commands
-
-Use `git mv` because this directory is inside a Git repository.
+### Vérifier le driver chargé
 
 ```bash
-git mv rtl88x2bu_getinfo.sh 01_rtl88x2bu_getinfo.sh
-git mv rtl88x2bu_wifi_netinfo.sh 02_rtl88x2bu_wifi_netinfo.sh
-git mv rtl88x2bu_buildtest_tmp.sh 03_rtl88x2bu_buildtest_tmp.sh
-git mv rtl88x2bu_loadtest_tmp.sh 04_rtl88x2bu_loadtest_tmp.sh
-git mv rtl88x2bu_persist_install.sh 05_rtl88x2bu_persist_install.sh
-git mv rtl88x2bu_dkms_manage.sh 06_rtl88x2bu_dkms_manage.sh
-git mv rtl88x2bu_initramfs_finalize.sh 07_rtl88x2bu_initramfs_finalize.sh
+lsmod | grep -Ei '(^88x2bu|rtw88|8822)'
 ```
 
-After renaming, check:
+Attendu :
+
+```text
+88x2bu
+```
+
+Non attendu :
+
+```text
+rtw88_8822bu
+rtw88_usb
+rtw88_8822b
+rtw88_core
+```
+
+---
+
+### Vérifier le binding de wlan1
 
 ```bash
-git status --short
-ls -lh
+readlink -f /sys/class/net/wlan1/device/driver
 ```
 
-## Current final state expected
+Attendu :
 
-After the current work session, the expected stable state is:
+```text
+/sys/bus/usb/drivers/rtl88x2bu
+```
 
-- persistent install completed;
-- DKMS install completed;
-- `wlan1` currently bound to `rtl88x2bu`;
-- DKMS validation passed;
-- reboot can wait;
-- after reboot, run:
+---
+
+### Vérifier le module installé
+
+```bash
+modinfo /lib/modules/$(uname -r)/extra/rtl88x2bu/88x2bu.ko
+```
+
+ou, en mode DKMS installé :
+
+```bash
+modinfo /lib/modules/$(uname -r)/updates/dkms/88x2bu.ko
+```
+
+---
+
+### Vérifier DKMS
+
+```bash
+dkms status | grep rtl88x2bu
+```
+
+État cible :
+
+```text
+installed
+```
+
+État intermédiaire :
+
+```text
+built
+```
+
+État insuffisant :
+
+```text
+added
+```
+
+---
+
+## Comportement après reboot
+
+Après reboot, valider :
 
 ```bash
 cd /mnt/data2_78g/Security/scripts/rtl88x2bu/NoX
-sudo ./06_rtl88x2bu_dkms_manage.sh --validation
+sudo ./01_install_persist.sh --validation
+sudo ./03_dkms_manage.sh --validation
+readlink -f /sys/class/net/wlan1/device/driver
+lsmod | grep -Ei '(^88x2bu|rtw88|8822)'
 ```
 
-If this passes after reboot, the DKMS/persistent driver setup is confirmed across boot.
+Résultat attendu :
+
+```text
+wlan1 -> rtl88x2bu
+88x2bu chargé
+rtw88 absent
+```
+
+---
+
+## Comportement après mise à jour kernel
+
+Sans DKMS :
+
+- le module manuel installé dans l’ancien kernel ne suit pas automatiquement ;
+- il faut reconstruire et réinstaller.
+
+Avec DKMS correctement installé :
+
+- DKMS reconstruit le module pour le nouveau kernel ;
+- le driver reste disponible après upgrade ;
+- une validation reste obligatoire après reboot.
+
+---
+
+## Politique de sécurité
+
+Les scripts sont conçus pour :
+
+- ne rien faire de destructif sans `--exec` ou `--reverse` ;
+- créer des sauvegardes avant modification ;
+- écrire les rapports dans le dossier du script ;
+- ne pas créer de sous-dossiers inutiles ;
+- rester auditables.
+
+---
+
+## Nettoyage
+
+Après validation complète :
+
+```bash
+./99_cleanup_nox.sh
+```
+
+Le nettoyage ne doit jamais supprimer :
+
+```text
+README.md
+*.sh
+.git/
+```
+
+---
+
+## Résumé court
+
+Workflow normal :
+
+```bash
+cd /mnt/data2_78g/Security/scripts/rtl88x2bu/NoX
+
+./01_install_persist.sh --status
+sudo ./01_install_persist.sh --exec
+sudo ./01_install_persist.sh --validation
+
+./02_initramfs_finalize.sh --status
+./02_initramfs_finalize.sh --validation
+
+./03_dkms_manage.sh --status
+sudo ./03_dkms_manage.sh --exec
+sudo ./03_dkms_manage.sh --validation
+```
+
+Nettoyage final :
+
+```bash
+./99_cleanup_nox.sh
+```
+
+---
+
+## Auteur
+
+NoX workflow for Kali Linux rtl88x2bu driver management.

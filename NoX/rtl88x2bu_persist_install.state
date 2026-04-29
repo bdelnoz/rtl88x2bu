@@ -1,0 +1,7 @@
+SCRIPT_VERSION=1.0.5
+TS=2026-04-29_233817
+KVER=6.19.11+kali-amd64
+INSTALL_PATH=/lib/modules/6.19.11+kali-amd64/extra/rtl88x2bu/88x2bu.ko
+MODPROBE_CONF=/etc/modprobe.d/rtl88x2bu-local.conf
+BACKUP_MODULE=/mnt/data2_78g/Security/scripts/rtl88x2bu/NoX/backup_rtl88x2bu_2026-04-29_233817_88x2bu.ko
+BACKUP_CONF=/mnt/data2_78g/Security/scripts/rtl88x2bu/NoX/backup_rtl88x2bu_2026-04-29_233817_rtl88x2bu-local.conf
